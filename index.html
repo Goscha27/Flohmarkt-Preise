@@ -1,19 +1,21 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="UTF-8">
-  <title>Foto Inventar</title>
-  <style>
-    body { font-family: Arial; text-align: center; padding: 20px; }
-    input, button { padding: 8px; margin: 5px; }
-    table { margin: 20px auto; border-collapse: collapse; }
-    td, th { border: 1px solid #ccc; padding: 8px; }
-    img { width: 60px; height: 60px; object-fit: cover; }
-  </style>
+<meta charset="UTF-8">
+<title>Inventar Pro</title>
+
+<style>
+body { font-family: Arial; text-align: center; padding: 20px; }
+input, button { padding: 8px; margin: 5px; }
+table { margin: 20px auto; border-collapse: collapse; width: 95%; }
+td, th { border: 1px solid #ccc; padding: 6px; }
+img { width: 50px; height: 50px; object-fit: cover; }
+</style>
 </head>
+
 <body>
 
-<h2>📸 Foto Inventar</h2>
+<h2>📦 Inventar Pro</h2>
 
 <input type="file" accept="image/*" capture="environment" id="imageInput"><br>
 <input type="text" id="name" placeholder="Produktname">
@@ -22,18 +24,15 @@
 <br>
 <button onclick="saveProduct()">Speichern</button>
 
-<h3>📦 Bestand</h3>
-<table id="table">
-  <tr>
-    <th>Bild</th>
-    <th>Name</th>
-    <th>Preis</th>
-    <th>Menge</th>
-    <th>Aktion</th>
-  </tr>
-</table>
+<br><br>
+<input type="text" id="search" placeholder="🔍 Suchen..." oninput="renderTable()">
+
+<h3>📊 Bestand</h3>
+<table id="table"></table>
 
 <script>
+let editIndex = null;
+
 function getDB() {
   return JSON.parse(localStorage.getItem("products") || "[]");
 }
@@ -42,33 +41,68 @@ function saveDB(db) {
   localStorage.setItem("products", JSON.stringify(db));
 }
 
+// 🔥 Bild verkleinern (WICHTIG!)
+function compressImage(file, callback) {
+  let reader = new FileReader();
+  reader.onload = function(e) {
+    let img = new Image();
+    img.onload = function() {
+      let canvas = document.createElement("canvas");
+      let maxSize = 300;
+      let scale = maxSize / Math.max(img.width, img.height);
+
+      canvas.width = img.width * scale;
+      canvas.height = img.height * scale;
+
+      let ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+
+      let compressed = canvas.toDataURL("image/jpeg", 0.6);
+      callback(compressed);
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
 function saveProduct() {
   let file = document.getElementById("imageInput").files[0];
   let name = document.getElementById("name").value;
   let price = document.getElementById("price").value;
   let stock = document.getElementById("stock").value;
 
-  if (!file || !name) {
-    alert("Bitte Bild + Name eingeben!");
+  if (!name) {
+    alert("Name fehlt!");
     return;
   }
 
-  let reader = new FileReader();
-  reader.onload = function(e) {
-    let db = getDB();
+  let db = getDB();
 
-    db.push({
-      image: e.target.result,
-      name,
-      price,
-      stock
-    });
+  function finishSave(imageData) {
+    let product = { image: imageData, name, price, stock };
+
+    if (editIndex !== null) {
+      db[editIndex] = product;
+      editIndex = null;
+    } else {
+      db.push(product);
+    }
 
     saveDB(db);
     renderTable();
-  };
 
-  reader.readAsDataURL(file);
+    // 🔥 Formular reset
+    document.getElementById("imageInput").value = "";
+    document.getElementById("name").value = "";
+    document.getElementById("price").value = "";
+    document.getElementById("stock").value = "";
+  }
+
+  if (file) {
+    compressImage(file, finishSave);
+  } else {
+    finishSave("");
+  }
 }
 
 function deleteProduct(index) {
@@ -78,8 +112,20 @@ function deleteProduct(index) {
   renderTable();
 }
 
+function editProduct(index) {
+  let db = getDB();
+  let p = db[index];
+
+  document.getElementById("name").value = p.name;
+  document.getElementById("price").value = p.price;
+  document.getElementById("stock").value = p.stock;
+
+  editIndex = index;
+}
+
 function renderTable() {
   let db = getDB();
+  let search = document.getElementById("search").value.toLowerCase();
   let table = document.getElementById("table");
 
   table.innerHTML = `
@@ -93,13 +139,18 @@ function renderTable() {
   `;
 
   db.forEach((p, i) => {
+    if (!p.name.toLowerCase().includes(search)) return;
+
     table.innerHTML += `
       <tr>
-        <td><img src="${p.image}"></td>
+        <td>${p.image ? `<img src="${p.image}">` : ""}</td>
         <td>${p.name}</td>
         <td>${p.price}€</td>
         <td>${p.stock}</td>
-        <td><button onclick="deleteProduct(${i})">❌</button></td>
+        <td>
+          <button onclick="editProduct(${i})">✏️</button>
+          <button onclick="deleteProduct(${i})">❌</button>
+        </td>
       </tr>
     `;
   });
