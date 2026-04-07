@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Foto Inventar</title>
+  <style>
+    body { font-family: Arial; text-align: center; padding: 20px; }
+    input, button { padding: 8px; margin: 5px; }
+    table { margin: 20px auto; border-collapse: collapse; }
+    td, th { border: 1px solid #ccc; padding: 8px; }
+    img { width: 60px; height: 60px; object-fit: cover; }
+  </style>
+</head>
+<body>
+
+<h2>📸 Foto Inventar</h2>
+
+<input type="file" accept="image/*" capture="environment" id="imageInput"><br>
+<input type="text" id="name" placeholder="Produktname">
+<input type="number" id="price" placeholder="Preis €">
+<input type="number" id="stock" placeholder="Menge">
+<br>
+<button onclick="saveProduct()">Speichern</button>
+
+<h3>📦 Bestand</h3>
+<table id="table">
+  <tr>
+    <th>Bild</th>
+    <th>Name</th>
+    <th>Preis</th>
+    <th>Menge</th>
+    <th>Aktion</th>
+  </tr>
+</table>
+
+<script>
+function getDB() {
+  return JSON.parse(localStorage.getItem("products") || "[]");
+}
+
+function saveDB(db) {
+  localStorage.setItem("products", JSON.stringify(db));
+}
+
+function saveProduct() {
+  let file = document.getElementById("imageInput").files[0];
+  let name = document.getElementById("name").value;
+  let price = document.getElementById("price").value;
+  let stock = document.getElementById("stock").value;
+
+  if (!file || !name) {
+    alert("Bitte Bild + Name eingeben!");
+    return;
+  }
+
+  let reader = new FileReader();
+  reader.onload = function(e) {
+    let db = getDB();
+
+    db.push({
+      image: e.target.result,
+      name,
+      price,
+      stock
+    });
+
+    saveDB(db);
+    renderTable();
+  };
+
+  reader.readAsDataURL(file);
+}
+
+function deleteProduct(index) {
+  let db = getDB();
+  db.splice(index, 1);
+  saveDB(db);
+  renderTable();
+}
+
+function renderTable() {
+  let db = getDB();
+  let table = document.getElementById("table");
+
+  table.innerHTML = `
+    <tr>
+      <th>Bild</th>
+      <th>Name</th>
+      <th>Preis</th>
+      <th>Menge</th>
+      <th>Aktion</th>
+    </tr>
+  `;
+
+  db.forEach((p, i) => {
+    table.innerHTML += `
+      <tr>
+        <td><img src="${p.image}"></td>
+        <td>${p.name}</td>
+        <td>${p.price}€</td>
+        <td>${p.stock}</td>
+        <td><button onclick="deleteProduct(${i})">❌</button></td>
+      </tr>
+    `;
+  });
+}
+
+renderTable();
+</script>
+
+</body>
+</html>
